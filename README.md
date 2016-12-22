@@ -1,18 +1,4 @@
----The neural network uses convolution layers with appropriate filter sizes. Layers exist to introduce nonlinearity into the model. The data is normalized in the model.
-
----Train/validation/test splits have been used, and the model uses dropout layers or other methods to reduce overfitting.
-
----Learning rate parameters are chosen with explanation, or an Adam optimizer is used.
-
----Training data has been chosen to induce the desired behavior in the simulation (i.e. keeping the car on the track).
-
----The README thoroughly discusses the approach taken for deriving and designing a model architecture fit for solving the given problem.
-
-The README provides sufficient details of the characteristics and qualities of the architecture, such as the type of model used, the number of layers, the size of each layer. Visualizations emphasizing particular qualities of the architecture are encouraged.
-
-The README describes how the model was trained and what the characteristics of the dataset are. Information such as how the dataset was generated and examples of images from the dataset should be included.
-
-
+# SDC P3 Overview
 
 ## Training data
 ### Collection & Characteristics
