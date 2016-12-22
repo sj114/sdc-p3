@@ -14,6 +14,7 @@ from keras.layers import Activation, Dropout, Flatten, Dense, ELU
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.regularizers import l2
+import matplotlib.pyplot as plt
 import pickle
 import math
 import numpy as np
@@ -32,14 +33,44 @@ img_width, img_height = 160, 50
 # global variable to save sample training images
 global_show_img = True 
 
+''' Function to plot images for data visualization '''
+def plot_images_fxn(images, angles, labels):
+    
+    # Create figure with 2x2 sub-plots.
+    fig, axes = plt.subplots(2, 2)
+    fig.subplots_adjust(hspace=0.3, wspace=0.3)
+    
+    plt.title("Training images")
+    for i, ax in enumerate(axes.flat):
+        if i >= len(images):
+            break
+            
+        # Plot image.
+        ax.imshow(images[i], cmap='binary')
+
+        xlabel = "Steering angle: {0}".format(angles[i])
+
+        # Show the angles as the label on the x-axis.
+        ax.set_xlabel(xlabel)
+        ax.set_title(labels[i])
+        
+        # Remove ticks from the plot.
+        ax.set_xticks([])
+        ax.set_yticks([])
+    
+    fig.savefig('training_images.png', bbox_inches='tight')
+    plt.close()
+
 ''' Function to apply any image augmentations or transformations
 The following are done here:
     - image resizing
     - cropping unwanted sections of the image
     - random flipping
 '''
-def transform_image(drive_data_entry, steer_angle):
-    global global_show_img
+def transform_image(drive_data_entry, steer_angle, plot_im):
+    plot_images = []
+    plot_angles = []
+    plot_labels = []
 
     i_img = np.random.randint(1)
     offset_angle = 0.2
@@ -56,28 +87,40 @@ def transform_image(drive_data_entry, steer_angle):
     if os.path.exists(img_name):
 
         image = cv2.imread(img_name)
-        if global_show_img == True:
+        if plot_im == True:
             cv2.imwrite("test_orig.png", image)
+            plot_images.append(image)
+            plot_angles.append(steer_angle)
+            plot_labels.append("original")
         
         # Resize and crop
         dim = (int(orig_img_width/2), int(orig_img_height/2))
         image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
-        if global_show_img == True:
+        if plot_im == True:
             print ("dim: ", dim)
             cv2.imwrite("resized.png", image)
+            plot_images.append(image)
+            plot_angles.append(steer_angle)
+            plot_labels.append("resized")
 
         image = image[20:img_height+20, 0:img_width]
-        if global_show_img == True:
+        if plot_im == True:
             cv2.imwrite("cropped.png", image)
+            plot_images.append(image)
+            plot_angles.append(steer_angle)
+            plot_labels.append("cropped")
 
         # Random flip
         ind_flip = np.random.randint(2)
-        if ind_flip:
+        if ind_flip or plot_im:
             image = cv2.flip(image, 1)
-            if global_show_img == True:
-                cv2.imwrite("flipped.png", image)
-                global_show_img = False
             steer_angle = -steer_angle
+            if plot_im == True:
+                cv2.imwrite("flipped.png", image)
+                plot_images.append(image)
+                plot_angles.append(steer_angle)
+                plot_labels.append("flipped")
+                plot_images_fxn(plot_images, plot_angles, plot_labels)
         image = np.array(image, dtype=np.float32)
     else:
         print (img_name)
@@ -93,6 +136,7 @@ The following are done here:
 '''
 def get_batch_train_data(X_train, Y_train, batch_size):
     
+    global global_show_img
     n_train = len(Y_train)
     print ("Number of training samples: ", n_train)
 
@@ -100,10 +144,16 @@ def get_batch_train_data(X_train, Y_train, batch_size):
     batch_y = np.zeros(batch_size)
     while 1:
         for i_batch in range(batch_size):
+            plot_image = False 
             i_log = np.random.randint(n_train)
             image_path = X_train[i_log] 
                 
-            image, steer_angle = transform_image(image_path, float(Y_train[i_log]))
+            if (float(Y_train[i_log])) and global_show_img:
+                plot_image = True
+                global_show_img = False
+            image, steer_angle = transform_image(image_path, 
+                                                 float(Y_train[i_log]), 
+                                                 plot_image)
             
             batch_x[i_batch] = image
             batch_y[i_batch] = steer_angle 

@@ -18,7 +18,7 @@ The README describes how the model was trained and what the characteristics of t
 ### Collection & Characteristics
 
 The training data was collected with an Xbox 360 gaming controller. Multiple laps covering the entire track were recorded with the following characteristics:
-- smooth lap
+- a smooth lap
 - a wiggly lap with small wiggles to train the model to steer to the center
 - a wiggly lap with large wiggles to train the model for course corrections when it's beginning to get off track
 - multiple captures of the left turn following the bridge since it's a very sharp turn 
@@ -41,9 +41,7 @@ The captured training image data set was augmented by horizontally flipping all 
 
 ### Examples
 
-Center image (steering angle: ...)
-
-Flipped image (steering angle: ...)
+![Image transformations](training_images.png)
 
 ## Model
 ### Architecture
@@ -63,21 +61,22 @@ This architecture is similar to the one I used in the Traffic Signs project, exc
 
 Starting with a simpler initial model with just 2 CONVs and 1 FC, no pooling, no dropout, incremental additions of non-linearity, Pooling, Hidden Layers and finally Dropouts were included to enhance the feature learning and to reduce overfitting, before finally arriving at the above mentioned architecture.
 
-Since the starting image size is not particularly small, strided convolution of 2x2 and a larger kernel size (5x5) were used for the first few conv layers, before reducing the stride to 1 and kernel size to 3x3 for the subsequent layers. Various different sizes for the filters and fully connected layers were experimented with, and the combination that has been chosen in the final architecture provided the best performance in these experiments. 
+Since the starting image size is not particularly small, strided convolution of 2x2 and a larger kernel size (5x5) were used for the first few conv layers, before reducing the stride to 1 and kernel size to 3x3 for the subsequent layers. Various different sizes for the filters and fully connected layers were experimented with, and the combination that has been chosen in the final architecture provided the best performance in these experiments. Ideas such as increased stride size and kernel size for initial convolutional layers were derived from the following [whitepaper](https://arxiv.org/pdf/1604.07316v1.pdf). 
+
 
 ### Hyperparameters
 
-Filter/kernel size: 5x5 and 3x3
-Number of epochs: 3
-Batch size: 32
-Learning rate: 0.0001
-Pooling stride: 2x2
-Dropout rate: 0.25 and 0.5
-Optimizer: Adam
-Loss function: MSE
-Non-linear component: ELU
-Padding type: 'Same'
-Stride size: 2 for some layers, 1 for some layers
+* Filter/kernel size: 5x5 for first 3 conv layers, and 3x3 for last 3 conv layers
+* Number of epochs: 3
+* Batch size: 32
+* Learning rate: 0.0001
+* Pooling stride: 2x2
+* Dropout rate: 0.25 after Conv layers and 0.5 after FC layers
+* Optimizer: Adam
+* Loss function: MSE
+* Non-linear component: ELU
+* Padding type: 'Same'
+* Stride size: 2x2 for first 3 conv layers, 1x1 for last 3 conv layers
 
 ### Fully annotated model
 
@@ -95,11 +94,19 @@ I trained the model for about 20 epochs and saved the intermediate weights value
 
 ### Data generation
 
+A custom training data generator was implemented and plugged into _keras' fit generator_ API, yielding a batch of transformed images to the trainer. Each epoch spanned ~12000 images.
+
 ## Autonomous mode testing
 ### Throttling model
 
-A simplistic throttle function has been implemented to change the throttle depending on the steering angle to emulate regular driving. The throttle is dropped (in fact, it switches to braking) while the car starts to make turns (...) and accelerates while finishing the turns (..., which empirically signifies the end of the turn, because there is a delay before the throttle takes effect). While driving straight (), the throttle stays at ...
+A simplistic throttle function has been implemented to change the throttle depending on the steering angle to emulate regular driving. The throttle is dropped (in fact, it brakes to _-0.05_) while the car starts to make turns (when steering exceeds _abs(0.08)_) and accelerates to _0.3_ while finishing the turns (_>abs(0.2)_, which empirically signifies the end of the turn, because there is a delay before the higher speed takes effect). While driving straight (_[-0.08,0.08]_), the throttle stays at 0.15.
 
 ### Performance
 
+With this particular model, the car is able to complete the circuit repeatedly, without climbing onto hazardous kerbs. However, this implementation assumes that driving on the yellow lane line markers and using the red/white kerbs are acceptable as it's a race track, and it's typical to use the red/white chicanes in order to maintain momentum.
 
+### Execution
+
+The following command is used to execute the autonomous mode test for Track 1:
+
+**_python drive.py model.json_**
