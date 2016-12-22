@@ -2,7 +2,7 @@
 
 ---Train/validation/test splits have been used, and the model uses dropout layers or other methods to reduce overfitting.
 
-Learning rate parameters are chosen with explanation, or an Adam optimizer is used.
+---Learning rate parameters are chosen with explanation, or an Adam optimizer is used.
 
 ---Training data has been chosen to induce the desired behavior in the simulation (i.e. keeping the car on the track).
 
@@ -35,11 +35,15 @@ The image resolution was decreased from 160x320 to 80x160 to speeden processing 
 
 In order to focus on the driving track, the top 1/4 of the image (20x160) was cropped off since it did not add to the features that the model needed to learn. Similarly, the bottom 10x160 pixels were cropped off since it only had the hood of the car. The final image dimension is 50x160x3. 
 
-### Examples
-
 ### Augmentation
 
 The captured training image data set was augmented by horizontally flipping all the images to avoid left/right turn biases. The steering angles were correspondingly inverted. 
+
+### Examples
+
+Center image (steering angle: ...)
+
+Flipped image (steering angle: ...)
 
 ## Model
 ### Architecture
@@ -64,9 +68,9 @@ Since the starting image size is not particularly small, strided convolution of 
 ### Hyperparameters
 
 Filter/kernel size: 5x5 and 3x3
-Number of epochs:
-Batch size:
-Learning rate:
+Number of epochs: 3
+Batch size: 32
+Learning rate: 0.0001
 Pooling stride: 2x2
 Dropout rate: 0.25 and 0.5
 Optimizer: Adam
@@ -77,13 +81,17 @@ Stride size: 2 for some layers, 1 for some layers
 
 ### Fully annotated model
 
+![Model architecture](model_graph.png)
+
 ### Model summary
 
 ![Model summary](model_summary.png)
 
 ### Training
 
-Adam optimizer was used with learning rate of ... A batch size of ... was 
+Adam optimizer was used with learning rate of 0.0001, batch size of 32 and each epoch spanning the full training data set. These values were empirically chosen after experimenting with learning rates of 0.001 and 0.00001. Batch sizes of 64, 128 and 256 were also tried. 
+
+I trained the model for about 20 epochs and saved the intermediate weights values, and tested each one of them individually and determined that epoch #3 gave me the best performance. 
 
 ### Data generation
 
