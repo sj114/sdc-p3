@@ -7,6 +7,7 @@ import socketio
 import eventlet
 import eventlet.wsgi
 import time
+import math
 from PIL import Image
 from PIL import ImageOps
 from flask import Flask, render_template
@@ -53,10 +54,17 @@ def telemetry(sid, data):
     # The current image from the center camera of the car
     imgString = data["image"]
     image = Image.open(BytesIO(base64.b64decode(imgString)))
-    image = image.resize((160, 80))
-    image = image.crop((0, 20, 160, 70))
-    image_array = np.asarray(image)
+    #image = image.resize((160, 80))
+    #image = image.crop((0, 20, 160, 70))
+    image = np.asarray(image)
     #image_array = shift_image(image_array, prev_angle)
+
+    shape = image.shape
+    #image = image[int(shape[0]/3):shape[0], 0:shape[1]]
+    image = image[math.floor(shape[0]/4):shape[0]-25, 0:shape[1]]
+    image = cv2.resize(image, (200, 66), interpolation=cv2.INTER_AREA)
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    image_array = image
 
     transformed_image_array = image_array[None, :, :, :]
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
@@ -77,7 +85,7 @@ def telemetry(sid, data):
                 n_brake_frames += 1 #Track number of successive braking frames
     else:
         throttle = 0.15
-    #throttle = 0.5
+    throttle = 0.15
     prev_throttle = throttle
     prev_angle = steering_angle
 

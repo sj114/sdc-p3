@@ -28,7 +28,7 @@ import sys
 
 # dimensions of our images.
 orig_img_width, orig_img_height = 320, 160
-img_width, img_height = 160, 50 
+img_width, img_height, ch = 200, 66, 3
 
 # global variable to save sample training images
 global_show_img = True 
@@ -72,13 +72,13 @@ def transform_image(drive_data_entry, steer_angle, plot_im):
     plot_angles = []
     plot_labels = []
 
-    i_img = np.random.randint(1)
-    offset_angle = 0.2
+    i_img = np.random.choice(['center', 'left', 'right'])
+    offset_angle = 0.25
 
-    if (i_img == 1): #left
+    if (i_img == 'left'): 
         img_name = drive_data_entry[1]
         steer_angle += offset_angle
-    elif (i_img == 2): #right
+    elif (i_img == 'right'): 
         img_name = drive_data_entry[2]
         steer_angle -= offset_angle
     else: #center
@@ -94,21 +94,25 @@ def transform_image(drive_data_entry, steer_angle, plot_im):
             plot_labels.append("original")
         
         # Resize and crop
-        dim = (int(orig_img_width/2), int(orig_img_height/2))
-        image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
-        if plot_im == True:
-            print ("dim: ", dim)
-            cv2.imwrite("resized.png", image)
-            plot_images.append(image)
-            plot_angles.append(steer_angle)
-            plot_labels.append("resized")
-
-        image = image[20:img_height+20, 0:img_width]
+        # get shape and chop off 1/3 from the top
+        shape = image.shape
+        # note: numpy arrays are (row, col)!
+        #image = image[int(shape[0]/3):shape[0], 0:shape[1]]
+        image = image[math.floor(shape[0]/4):shape[0]-25, 0:shape[1]]
         if plot_im == True:
             cv2.imwrite("cropped.png", image)
             plot_images.append(image)
             plot_angles.append(steer_angle)
             plot_labels.append("cropped")
+
+        image = cv2.resize(image, (img_width, img_height), interpolation=cv2.INTER_AREA)
+        if plot_im == True:
+            cv2.imwrite("resized.png", image)
+            plot_images.append(image)
+            plot_angles.append(steer_angle)
+            plot_labels.append("resized")
+
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
 
         # Random flip
         ind_flip = np.random.randint(2)
@@ -134,7 +138,13 @@ The following are done here:
     - Applies any applicable image transformations
     - Returns a batch of data
 '''
+dist_right = 0
+dist_left = 0
+dist_center = 0
 def get_batch_train_data(X_train, Y_train, batch_size):
+    global dist_right
+    global dist_left
+    global dist_center
     
     global global_show_img
     n_train = len(Y_train)
@@ -157,6 +167,13 @@ def get_batch_train_data(X_train, Y_train, batch_size):
             
             batch_x[i_batch] = image
             batch_y[i_batch] = steer_angle 
+
+        dist_right += len(np.extract(batch_y > 0, batch_y))
+        dist_left += len(np.extract(batch_y < 0, batch_y))
+        dist_center += len(np.extract(batch_y == 0, batch_y))
+        #plt.hist(batch_y, bins=20)
+        #plt.savefig('hist.png')
+
         yield batch_x, batch_y
 
 ''' Function that loads images for the validation data from the image paths '''
@@ -176,15 +193,19 @@ def load_val_data(X_val, Y_val):
                 cv2.imwrite("val_orig.png", image)
             
             # Resize and crop
-            dim = (int(orig_img_width/2), int(orig_img_height/2))
-            image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
-            if i == 0:
-                print ("dim: ", dim)
-                cv2.imwrite("val_resized.png", image)
-
-            image = image[20:img_height+20, 0:img_width]
+            # get shape and chop off 1/3 from the top
+            shape = image.shape
+            # note: numpy arrays are (row, col)!
+            #image = image[int(shape[0]/3):shape[0], 0:shape[1]]
+            image = image[math.floor(shape[0]/4):shape[0]-25, 0:shape[1]]
             if i == 0:
                 cv2.imwrite("val_cropped.png", image)
+
+            image = cv2.resize(image, (img_width, img_height), interpolation=cv2.INTER_AREA)
+            if i == 0:
+                cv2.imwrite("val_resized.png", image)
+
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
 
             image = np.array(image, dtype=np.float32)
             X_val_image[i] = image
@@ -200,7 +221,7 @@ def load_val_data(X_val, Y_val):
 def create_model():
 
     # base number of convolutional filters to use
-    nb_filters = 16 
+    nb_filters = 12 
 
     # convolution kernel size
     kernel_size = (5, 5)
@@ -215,48 +236,39 @@ def create_model():
     model.add(Lambda(lambda x: x/127.5 - 1.0, input_shape=(img_height, img_width, 3)))
 
     # convolution and non-linear layers with dropout and max pooling
-    model.add(Convolution2D(nb_filters, kernel_size[0], kernel_size[1],
-                            border_mode='same', subsample=(2,2)))
-    model.add(ELU())
     model.add(Convolution2D(nb_filters*2, kernel_size[0], kernel_size[1],
-                            border_mode='same', subsample=(2,2)))
+                            border_mode='valid', init='he_normal', subsample=(2,2)))
     model.add(ELU())
-    
-    model.add(MaxPooling2D(pool_size=pool_size))
-    model.add(Dropout(0.25))
 
     model.add(Convolution2D(nb_filters*3, kernel_size[0], kernel_size[1],
-                            border_mode='same', subsample=(2,2)))
-    model.add(ELU())
-    model.add(Convolution2D(nb_filters*4, kernel_size_s[0], kernel_size_s[1],
-                            border_mode='same'))
+                            border_mode='valid', init='he_normal', subsample=(2,2)))
     model.add(ELU())
     
-    model.add(MaxPooling2D(pool_size=pool_size))
-    model.add(Dropout(0.25))
-
-    model.add(Convolution2D(nb_filters*4, kernel_size_s[0], kernel_size_s[1],
-                            border_mode='same'))
-    model.add(ELU())
-    model.add(Convolution2D(nb_filters*4, kernel_size_s[0], kernel_size_s[1],
-                            border_mode='same'))
+    model.add(Convolution2D(nb_filters*4, kernel_size[0], kernel_size[1],
+                            border_mode='valid', init='he_normal', subsample=(2,2)))
     model.add(ELU())
 
-    model.add(MaxPooling2D(pool_size=pool_size, dim_ordering="th"))
-    model.add(Dropout(0.25))
+    model.add(Convolution2D(64, kernel_size_s[0], kernel_size_s[1],
+                            border_mode='valid', init='he_normal'))
+    model.add(ELU())
+    
+    model.add(Convolution2D(64, kernel_size_s[0], kernel_size_s[1],
+                            border_mode='valid', init='he_normal'))
+    model.add(ELU())
+
+    #model.add(MaxPooling2D(pool_size=pool_size, dim_ordering="th"))
+    #model.add(Dropout(0.25))
 
     model.add(Flatten())
 
     # fully connected layers with dropout and non-linearities
     model.add(Dense(100))
     model.add(ELU())
-    model.add(Dropout(0.5))
+    #model.add(Dropout(0.5))
     model.add(Dense(50))
     model.add(ELU())
-    model.add(Dropout(0.5))
     model.add(Dense(10))
     model.add(ELU())
-    model.add(Dropout(0.5))
     model.add(Dense(1))
     
     model.summary()
@@ -266,7 +278,7 @@ def create_model():
 def train_model(model, drive_data, train_from_scratch, n_epoch):
 
     # Hyperparameters
-    batch_size = 32 
+    batch_size = 64 
 
     # Initial learning rate and fine tuning rates differ
     if train_from_scratch:
@@ -289,10 +301,15 @@ def train_model(model, drive_data, train_from_scratch, n_epoch):
     X_train, X_val, Y_train, Y_val = train_test_split(drive_data, Y_train, test_size=0.05, random_state=221216)
     X_val_images, Y_steer = load_val_data(X_val, Y_val)
 
+    #results = [float(i) for i in Y_train]
+    #print(results)
+    #plt.hist(results, bins=20)
+    #plt.show()
+
     # Fits the model on batches with real-time data augmentation:
-    for i_pr in range(1, n_epoch): 
+    for i_pr in range(0, n_epoch): 
         history = model.fit_generator(get_batch_train_data(X_train, Y_train, batch_size),
-                                      samples_per_epoch=len(Y_train)*2.0, nb_epoch=1, 
+                                      samples_per_epoch=len(Y_train)*3.0, nb_epoch=1, 
                                       validation_data=(X_val_images, Y_val), 
                                       verbose=1) 
 
@@ -301,6 +318,8 @@ def train_model(model, drive_data, train_from_scratch, n_epoch):
         with open("model_{}.json".format(i_pr), 'w') as json_file:
             json_file.write(model_json)
             model.save_weights("model_{}.h5".format(i_pr))
+
+    print ('dist_right: {}, dist_left: {}, dist_center: {}'.format(dist_right, dist_left, dist_center))
 
     # Save final weights and architecture  
     model_json = model.to_json()
@@ -324,7 +343,7 @@ def main():
     print ("Number of epochs: ", args.epoch)
 
     # Open driving data csv file 
-    with open('../behavioral-cloning/training_data_segments/driving_log.csv', newline='') as csvfile:
+    with open('../behavioral-cloning/data/driving_log.csv', newline='') as csvfile:
         drive_data_reader = csv.reader(csvfile, delimiter=',', skipinitialspace=True)
         drive_data = list(drive_data_reader)
 
