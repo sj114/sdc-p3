@@ -30,9 +30,7 @@ The captured training image data set was augmented by:
 - randomly flipping (horizontally) the images to avoid left/right turn biases, and inverting the steering angles accordingly
 - HLS color space transformation for all images, since it's quite close to how human perceive color and is able to differentiate brightness more concretely
 
-This results in a larger training data set with more uniformly distributed steering angles as shown in the histogram. 
-
-![Training data distribution](hist.png)
+This results in a larger training data set with more uniformly distributed steering angles.
 
 ### Examples
 
@@ -61,7 +59,7 @@ Various different sizes for the filters and fully connected layers were experime
 ### Hyperparameters
 
 * Filter/kernel size: 5x5 for first 3 conv layers, and 3x3 for last 2 conv layers
-* Number of epochs: 13 
+* Number of epochs: 15 
 * Batch size: 64
 * Learning rate: 0.0001
 * Dropout rate: 0.2
@@ -83,7 +81,7 @@ Various different sizes for the filters and fully connected layers were experime
 
 Adam optimizer was used with learning rate of 0.0001, batch size of 64 and each epoch spanning the full training data set. These values were empirically chosen after experimenting with learning rates of 0.001 and 0.00001. Batch sizes of 32, 128 and 256 were also tried. 
 
-I trained the model for about 20 epochs and saved the intermediate weights values, and tested each one of them individually and determined that epoch #13 gave me the best performance. 
+I trained the model for about 20 epochs and saved the intermediate weights values, and tested each one of them individually and determined that epoch #15 gave me the best performance. 
 
 ### Data generation
 
