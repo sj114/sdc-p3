@@ -8,6 +8,7 @@ import eventlet
 import eventlet.wsgi
 import time
 import math
+import cv2
 from PIL import Image
 from PIL import ImageOps
 from flask import Flask, render_template
@@ -20,25 +21,6 @@ from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_a
 sio = socketio.Server()
 app = Flask(__name__)
 model = None
-prev_image_array = None
-n_brake_frames = 0
-prev_throttle = 0
-prev_angle = 0
-
-import cv2
-def shift_image(image, prev_angle):
-    # Translation
-    if prev_angle >= 0 and prev_angle < 0.2:
-        tr_x = -2.5
-    elif prev_angle < -0.05:
-        tr_x = 2.5
-    else:
-        tr_x = 0
-    tr_y = 0
-    Trans_M = np.float32([[1,0,tr_x],[0,1,tr_y]])
-    image_tr = cv2.warpAffine(image,Trans_M,(160, 50))
-
-    return image_tr
 
 @sio.on('telemetry')
 def telemetry(sid, data):
@@ -54,40 +36,20 @@ def telemetry(sid, data):
     # The current image from the center camera of the car
     imgString = data["image"]
     image = Image.open(BytesIO(base64.b64decode(imgString)))
-    #image = image.resize((160, 80))
-    #image = image.crop((0, 20, 160, 70))
     image = np.asarray(image)
-    #image_array = shift_image(image_array, prev_angle)
 
+    # Crop, resize, color space transform to match input to model
     shape = image.shape
-    #image = image[int(shape[0]/3):shape[0], 0:shape[1]]
     image = image[math.floor(shape[0]/4):shape[0]-25, 0:shape[1]]
     image = cv2.resize(image, (200, 66), interpolation=cv2.INTER_AREA)
     image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-    image_array = image
 
-    transformed_image_array = image_array[None, :, :, :]
+    transformed_image_array = image[None, :, :, :]
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     steering_angle = float(model.predict(transformed_image_array, batch_size=1))
 
     # The driving model currently just outputs a constant throttle. Feel free to edit this.
-
-    # Throttling model
-    if steering_angle > 0.2 or steering_angle < -0.2:
-        throttle = 0.3
-    elif steering_angle > 0.08 or steering_angle < -0.08:
-        throttle = -0.05
-        if prev_throttle <= 0:
-            if n_brake_frames == 10:
-                throttle = 0.3
-                n_brake_frames = 0
-            else:
-                n_brake_frames += 1 #Track number of successive braking frames
-    else:
-        throttle = 0.15
     throttle = 0.15
-    prev_throttle = throttle
-    prev_angle = steering_angle
 
     print(steering_angle, throttle)
     send_control(steering_angle, throttle)
